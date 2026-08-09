@@ -1,0 +1,75 @@
+chromebook-mullvad-wireguard/ ├─ Makefile ├─ README.md ├─ CHEATSHEET.txt ├─ .gitignore ├─ .shellcheckrc ├─ .github/ │ └─
+workflows/ │ └─ ci.yml ├─ docs/ │ └─ ONBOARDING.md ├─ systemd/ │ ├─ wg-mullvad.service │ └─ wg-recovery.service ├─ config/ │ ├─
+wg0.conf.template │ ├─ wg0-advanced.conf.template │ └─ mullvad-servers.json ├─ scripts/ │ ├─ common-packages.sh │ ├─ server-discovery.sh │
+├─ setup-resilient.sh │ ├─ validate-setup.sh │ ├─ test-resilient.sh │ ├─ performance-monitor.sh │ ├─ update-keys.sh │ ├─ dns-leak-test.sh │ ├─
+auto-recovery.sh │ ├─ run-all.sh │ ├─ wg-env.sh │ ├─ lib.sh │ └─ kill-switch.sh ├─ plugins/ │ └─ README.md └─ logs/ └─
+README.mdchromebook-mullvad-wireguard/ ├─ Makefile ├─ README.md ├─ CHEATSHEET.txt ├─ .gitignore ├─ .shellcheckrc ├─ .github/ │ └─
+workflows/ │ └─ ci.yml ├─ docs/ │ └─ ONBOARDING.md ├─ systemd/ │ ├─ wg-mullvad.service │ └─ wg-recovery.service ├─ config/ │ ├─
+wg0.conf.template │ ├─ wg0-advanced.conf.template │ └─ mullvad-servers.json ├─ scripts/ │ ├─ common-packages.sh │ ├─ server-discovery.sh │
+├─ setup-resilient.sh │ ├─ validate-setup.sh │ ├─ test-resilient.sh │ ├─ performance-monitor.sh │ ├─ update-keys.sh │ ├─ dns-leak-test.sh │ ├─
+auto-recovery.sh │ ├─ run-all.sh │ ├─ wg-env.sh │ ├─ lib.sh │ └─ kill-switch.sh ├─ plugins/ │ └─ README.md └─ logs/ └─
+README.mdchromebook-mullvad-wireguard/ ├─ Makefile ├─ README.md ├─ CHEATSHEET.txt ├─ .gitignore ├─ .shellcheckrc ├─ .github/ │ └─
+workflows/ │ └─ ci.yml ├─ docs/ │ └─ ONBOARDING.md ├─ systemd/ │ ├─ wg-mullvad.service │ └─ wg-recovery.service ├─ config/ │ ├─
+wg0.conf.template │ ├─ wg0-advanced.conf.template │ └─ mullvad-servers.json ├─ scripts/ │ ├─ common-packages.sh │ ├─ server-discovery.sh │
+├─ setup-resilient.sh │ ├─ validate-setup.sh │ ├─ test-resilient.sh │ ├─ performance-monitor.sh │ ├─ update-keys.sh │ ├─ dns-leak-test.sh │ ├─
+auto-recovery.sh │ ├─ run-all.sh │ ├─ wg-env.sh │ ├─ lib.sh │ └─ kill-switch.sh ├─ plugins/ │ └─ README.md └─ logs/ └─
+README.mdchromebook-mullvad-wireguard/ ├─ Makefile ├─ README.md ├─ CHEATSHEET.txt ├─ .gitignore ├─ .shellcheckrc ├─ .github/ │ └─
+workflows/ │ └─ ci.yml ├─ docs/ │ └─ ONBOARDING.md ├─ systemd/ │ ├─ wg-mullvad.service │ └─ wg-recovery.service ├─ config/ │ ├─
+wg0.conf.template │ ├─ wg0-advanced.conf.template │ └─ mullvad-servers.json ├─ scripts/ │ ├─ common-packages.sh │ ├─ server-discovery.sh │
+├─ setup-resilient.sh │ ├─ validate-setup.sh │ ├─ test-resilient.sh │ ├─ performance-monitor.sh │ ├─ update-keys.sh │ ├─ dns-leak-test.sh │ ├─
+auto-recovery.sh │ ├─ run-all.sh │ ├─ wg-env.sh │ ├─ lib.sh │ └─ kill-switch.sh ├─ plugins/ │ └─ README.md └─ logs/ └─ README.md
+Response: chromebook-mullvad-wireguard Repository Architecture
+This repository is a production-grade, self-healing WireGuard (Mullvad) VPN setup explicitly optimized for ChromeOS (Crostini) environments.
+It handles network drops, DNS leaks, key rotation, and automated failovers without relying on the desktop Mullvad GUI.
+Component Breakdown
+1. Operations & Orchestration (Makefile, CHEATSHEET.txt, README.md)
+Makefile: Central command runner simplifying setup, linting, testing, and cleanup.
+CHEATSHEET.txt: Quick reference guide for common command-line operations and troubleshooting.
+2. Systemd Service Integration (systemd/)
+wg-mullvad.service: Systemd unit file to manage the primary WireGuard interface lifecycle (wg-quick up wg0 / down wg0) with security
+hardening flags (ProtectSystem=full, CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW).
+wg-recovery.service: Watchdog daemon that monitors connection health and triggers dynamic server failovers if handshakes stall or
+connections drop.
+3. Configurations & Templates (config/)
+wg0.conf.template: Default standard WireGuard configuration template using standard Mullvad endpoints (IPv4/IPv6).
+wg0-advanced.conf.template: Multi-hop, custom DNS, and MTU-tuned configuration template for high-latency or restricted networks.
+mullvad-servers.json: Cached local copy of Mullvad relay servers (updated via server-discovery.sh).
+4. Automation Scripts (scripts/)
+common-packages.sh: Centralized dependency manager that installs and verifies wireguard-tools, jq, curl, dnsutils, iproute2, and
+netcat-openbsd.
+server-discovery.sh: Queries Mullvad’s REST API for available relay servers, filtering by latency/location, with local 12-hour caching in
+/var/cache/chromebook-mullvad/.
+setup-resilient.sh: Primary deployment script that generates private/public key pairs, applies configuration templates, updates interface
+settings, and enables systemd services.
+validate-setup.sh: Pre-flight & post-flight verification script to check kernel compatibility (uname -r), required binary paths, and file
+permission safety (600 on keys/configs).
+test-resilient.sh: Connection test suite executing handshake checks, ping tests, DNS leak assertions, and HTTP egress verification.
+performance-monitor.sh: Benchmarks packet loss, throughput, latency, and handshake age across configured servers.
+update-keys.sh: Atomic key rotation utility that backs up existing keys, generates new ones via wg genkey, updates Mullvad API registration,
+and restarts the service smoothly.
+dns-leak-test.sh: Verifies that DNS requests pass exclusively through Mullvad's DNS servers (10.64.0.1 / 100.64.0.7) to prevent
+Crostini system DNS leaks.
+auto-recovery.sh: Background loop executed by wg-recovery.service to cycle through alternative servers when handshakes exceed
+maximum age thresholds (default: 120s).
+kill-switch.sh: Emergency script to immediately drop network interfaces and securely wipe local key material using shred.
+wg-env.sh & lib.sh: Shared environment variables and logging/error-handling functions used across all shell scripts.
+5. CI/CD & Testing (.github/workflows/ci.yml, .shellcheckrc)
+ci.yml: GitHub Actions workflow that runs static analysis (shellcheck) and validates configuration syntax on every commit/PR.
+Key Workflows & Commands
+Deployment & Setup
+# Bootstrap system dependencies, configs, and systemd services
+make bootstrap
+# Or run setup directly:
+bash scripts/setup-resilient.sh
+Monitoring & Health Checks
+# Run connection and leak test suite
+make test
+# Monitor tunnel performance and latency
+make perf
+# View systemd service status
+sudo systemctl status wg-mullvad.service
+Security & Key Management
+# Rotate WireGuard key pair safely
+bash scripts/update-keys.sh
+# Emergency network shutdown & key destruction
+bash scripts/kill-switch.sh
