@@ -1,0 +1,18 @@
+# Keys and secrets (CRITICAL OPSEC)
+**/privatekey*
+**/publickey
+*.key
+
+# Local configuration and caches
+config/mullvad-servers.json
+/etc/wireguard/
+/var/cache/chromebook-mullvad/
+
+# Logs
+logs/*.txt
+logs/*.log
+
+# OS generated files
+.DS_Store
+*.swp
+*~
