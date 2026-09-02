@@ -35,3 +35,20 @@ Android/
 AndroidStudioProjects/
 Downloads/
 pixel_10a_backup/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# MPD runtime state
+.mpd/*.db
+.mpd/*.pid
+.mpd/*state
+.mpd/*.sql
+
+# Local archives and backups
+home_repo_backup.git/
+session_scripts_archive/
+scripts/archive/
+*.bak
