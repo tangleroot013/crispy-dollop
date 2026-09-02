@@ -1,0 +1,37 @@
+# System & Runtime Caches
+.cache/
+.venv/
+__pycache__/
+node_modules/
+*.log
+.zsh_history*
+.bash_history
+.viminfo
+.wget-hsts
+.Xauthority
+
+# Tooling & SDK Storage
+.gradle/
+.dotnet/
+.konan/
+.npm/
+.yarn/
+.bun/
+.platformio/
+.minikube/
+.sonarlint/
+.matrix_cache/
+
+# Backups & Archives
+.zsh_backups/
+.nano-backups/
+backups/
+*.tar.gz
+*.zip
+
+# Unmanaged Data Directories
+.android/
+Android/
+AndroidStudioProjects/
+Downloads/
+pixel_10a_backup/

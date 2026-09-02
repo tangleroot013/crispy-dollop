@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""
+devports - Pure Python listening port analyzer.
+Parses `ss` output to find running development servers without needing root.
+"""
+import subprocess
+import sys
+
+def get_ports():
+    try:
+        out = subprocess.check_output(['ss', '-tulnp'], stderr=subprocess.DEVNULL).decode()
+        lines = out.splitlines()[1:]
+        print(f"\033[1;36m{'PROTO':<6} {'LOCAL PORT':<15} {'PROCESS'}\033[0m")
+        for line in lines:
+            parts = line.split()
+            if len(parts) < 5: 
+                continue
+            proto = parts[0]
+            local_addr = parts[4]
+            port = local_addr.split(':')[-1]
+            
+            proc = "Unknown (Root needed?)"
+            if len(parts) >= 7 and 'users:' in line:
+                try:
+                    match = line.split('users:(')[1].split(')')[0]
+                    proc = match.split(',')[0].replace('"', '')
+                except IndexError:
+                    pass
+            print(f"{proto:<6} {port:<15} {proc}")
+    except FileNotFoundError:
+        print("Error: 'ss' command not found. Is iproute2 installed?")
+    except Exception as e:
+        print(f"Error: {e}")
+
+if __name__ == '__main__':
+    get_ports()

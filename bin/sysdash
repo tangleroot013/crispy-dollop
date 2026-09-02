@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""
+sysdash - Pure Python Crostini Resource Dashboard.
+Reads directly from /proc for zero-overhead execution.
+"""
+import os
+
+def read_proc(path):
+    try:
+        with open(path, 'r') as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return ""
+
+def main():
+    print(f"\n\033[1;34m=== Crostini System Dashboard ===\033[0m")
+    
+    # Load Average
+    load_data = read_proc('/proc/loadavg')
+    if load_data:
+        load = load_data.split()[:3]
+        print(f"\033[1;36mLoad Avg:\033[0m  {' '.join(load)}")
+    
+    # Memory via /proc/meminfo
+    mem_info = {}
+    for line in read_proc('/proc/meminfo').splitlines():
+        parts = line.split(':')
+        mem_info[parts[0]] = int(parts[1].split()[0])
+    
+    if mem_info:
+        total = mem_info.get('MemTotal', 0) / 1024
+        avail = mem_info.get('MemAvailable', 0) / 1024
+        used = total - avail
+        pct = (used / total) * 100 if total > 0 else 0
+        print(f"\033[1;36mMemory:\033[0m    {used:.1f} MB / {total:.1f} MB ({pct:.1f}%)")
+    
+    # Disk via os.statvfs
+    st = os.statvfs('/')
+    total_disk = (st.f_blocks * st.f_frsize) / (1024**3)
+    free_disk = (st.f_bavail * st.f_frsize) / (1024**3)
+    used_disk = total_disk - free_disk
+    pct_disk = (used_disk / total_disk) * 100 if total_disk > 0 else 0
+    print(f"\033[1;36mDisk (/):\033[0m  {used_disk:.1f} GB / {total_disk:.1f} GB ({pct_disk:.1f}%)\n")
+
+if __name__ == '__main__':
+    main()

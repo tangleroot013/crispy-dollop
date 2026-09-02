@@ -1,0 +1,19 @@
+[user]
+	name = tangleroot013
+	email = tangleroot013@users.noreply.github.com
+[core]
+	editor = nano
+	pager = bat --paging=always
+[pull]
+	rebase = false
+[init]
+	defaultBranch = main
+	templateDir = /home/tangleroot013/.git-templates
+[credential]
+	helper = /usr/lib/git-core/git-credential-libsecret
+[credential "https://github.com"]
+	helper = 
+	helper = !/home/linuxbrew/.linuxbrew/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = 
+	helper = !/home/linuxbrew/.linuxbrew/bin/gh auth git-credential

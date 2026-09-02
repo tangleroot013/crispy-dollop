@@ -1,0 +1,37 @@
+# --- Connection Settings ---
+mpd_host = "127.0.0.1"
+mpd_port = "6600"
+mpd_crossfade_time = "2"
+
+# --- Interface & Layout ---
+user_interface = "alternative"
+playlist_display_mode = "columns"
+browser_display_mode = "columns"
+search_engine_display_mode = "columns"
+
+# --- MusicBee Column Format (Length, Artist, Album, Title) ---
+song_columns_list_format = "(6)[magenta]{l} (25)[cyan]{a} (30)[white]{b} (35)[green]{t}"
+
+# --- Status Bar & Header Visuals ---
+progressbar_look = "━━─"
+progressbar_color = "black"
+progressbar_elapsed_color = "cyan"
+statusbar_visibility = "yes"
+header_visibility = "yes"
+titles_visibility = "yes"
+
+# --- Lyrics Panel Settings ---
+lyrics_directory = "~/.lyrics"
+fetch_lyrics_for_current_song_in_background = "yes"
+store_lyrics_in_song_dir = "no"
+
+# --- Spectrum Visualizer Options ---
+visualizer_data_source = "/tmp/mpd.fifo"
+visualizer_output_name = "Visualizer feed"
+visualizer_in_stereo = "yes"
+visualizer_type = "spectrum"
+visualizer_look = "█▍"
+visualizer_color = "cyan,blue,magenta"
+visualizer_fps = "30"
+visualizer_autoscale = "yes"
+visualizer_spectrum_smooth_look = "yes"

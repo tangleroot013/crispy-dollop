@@ -1,0 +1,400 @@
+# ==============================================================================
+# .zshrc.local — resilient shell config, terminal-to-GitHub pipeline focus
+# Path: ~/.zshrc.local
+# ==============================================================================
+
+# ---- 1. paste / history safety -------------------------------------------
+unsetopt banghist          # stop "zsh: event not found" on ! in shebangs/heredocs
+setopt NO_NOMATCH          # stop unmatched globs (e.g. /*.sh) aborting commands
+setopt interactive_comments
+setopt notify
+
+export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+export PYTHONUNBUFFERED=1
+
+# ---- 2. autonomous logging (self-rotating, secret-redacting) ---------------
+CEREBRO_LOG="$HOME/.local/state/cerebroflow/shell.log"
+mkdir -p "${CEREBRO_LOG:h}" 2>/dev/null
+
+function _cerebro_log_cmd() {
+  local exit_code=$?
+  local cmd
+  cmd=$(fc -ln -1 2>/dev/null | sed 's/^[[:space:]]*//')
+  case "$cmd" in
+    *TOKEN*|*SECRET*|*PASSWORD*|*api_key*|*API_KEY*) cmd="[redacted]" ;;
+  esac
+  printf '%s\texit=%d\tpwd=%s\tcmd=%s\n' "$(date -Iseconds)" "$exit_code" "$PWD" "$cmd" >> "$CEREBRO_LOG" 2>/dev/null
+  if [[ -f "$CEREBRO_LOG" ]] && (( $(stat -c%s "$CEREBRO_LOG" 2>/dev/null || echo 0) > 1048576 )); then
+    tail -n 2000 "$CEREBRO_LOG" > "$CEREBRO_LOG.tmp" 2>/dev/null && mv "$CEREBRO_LOG.tmp" "$CEREBRO_LOG"
+  fi
+  return $exit_code
+}
+
+# ---- 3. error hints — local pattern-match only, no auto network calls -----
+function _cerebro_error_hint() {
+  local ec=$?
+  [[ $ec -eq 0 ]] && return
+  local cmd
+  cmd=$(fc -ln -1 2>/dev/null)
+  case "$cmd" in
+    *gh\ repo*|*git*repo*)
+      echo "[hint] exit $ec: 'gh' may be shadowed by an alias -> try: \\gh ..." ;;
+    *git\ push*)
+      echo "[hint] exit $ec: push failed -> try: git fetch && git status" ;;
+    apt*)
+      (( ec == 13 || ec == 100 )) && echo "[hint] exit $ec: apt needs sudo" ;;
+  esac
+  return $ec
+}
+
+autoload -U add-zsh-hook
+add-zsh-hook precmd _cerebro_log_cmd
+add-zsh-hook precmd _cerebro_error_hint
+
+# ---- 4. venv auto-switcher (unchanged) -------------------------------------
+function _auto_activate_venv() {
+  if [[ -d .venv && -f .venv/bin/activate ]]; then
+    [[ "$VIRTUAL_ENV" != "$PWD/.venv" ]] && source .venv/bin/activate
+  elif [[ -n "${VIRTUAL_ENV:-}" ]]; then
+    [[ "$PWD" != "${VIRTUAL_ENV:h}"* ]] && deactivate
+  fi
+}
+add-zsh-hook chpwd _auto_activate_venv
+_auto_activate_venv
+
+# ---- 5. terminal -> GitHub pipeline helpers --------------------------------
+alias l='ls -la'
+alias ll='ls -lh'
+alias gs='git status -sb'
+alias gp='git push'
+alias gh='\gh'          # guard against alias shadowing of the gh CLI
+
+# run the nearest ship.py (walks up from $PWD), from anywhere inside a repo
+function ship() {
+  local dir="$PWD"
+  while [[ "$dir" != "/" ]]; do
+    if [[ -f "$dir/ship.py" ]]; then
+      (cd "$dir" && python3 ship.py "$@")
+      return $?
+    fi
+    dir=$(dirname "$dir")
+  done
+  echo "[error] no ship.py found in $PWD or any parent"
+  return 1
+}
+
+# ---- 6. git status + last pipeline result on cd --------------------------
+function _cerebro_repo_status() {
+  [[ -d .git ]] || return
+  local branch ahead behind dirty status_line
+  branch=$(git symbolic-ref --short HEAD 2>/dev/null) || return
+  read -r behind ahead < <(git rev-list --left-right --count '@{u}...HEAD' 2>/dev/null)
+  dirty=""
+  [[ -n "$(git status --porcelain 2>/dev/null)" ]] && dirty="*"
+  status_line="[git] ${branch}${dirty}"
+  [[ -n "${ahead:-}" && "$ahead" != "0" ]] && status_line+=" up${ahead}"
+  [[ -n "${behind:-}" && "$behind" != "0" ]] && status_line+=" down${behind}"
+  echo "$status_line"
+
+  if [[ -f "$CEREBRO_LOG" ]]; then
+    local last_run
+    last_run=$(grep "pwd=$PWD" "$CEREBRO_LOG" 2>/dev/null | grep "cmd=ship:" | tail -1)
+    if [[ -n "$last_run" ]]; then
+      if [[ "$last_run" == *"exit=0"* ]]; then
+        echo "[ship] last pipeline run: ok"
+      else
+        echo "[ship] last pipeline run: FAILED"
+      fi
+    fi
+  fi
+}
+add-zsh-hook chpwd _cerebro_repo_status
+_cerebro_repo_status
+
+# ---- 7. stale JS install hint on cd (bun/npm) -----------------------------
+function _cerebro_js_install_hint() {
+  local lockfile=""
+  [[ -f bun.lock ]] && lockfile="bun.lock"
+  [[ -z "$lockfile" && -f package-lock.json ]] && lockfile="package-lock.json"
+  [[ -z "$lockfile" ]] && return
+  if [[ ! -d node_modules ]]; then
+    echo "[hint] $lockfile present, no node_modules -- run: bun install"
+  elif [[ "$lockfile" -nt node_modules ]]; then
+    echo "[hint] $lockfile newer than node_modules -- run: bun install"
+  fi
+}
+add-zsh-hook chpwd _cerebro_js_install_hint
+
+# go SDK
+export PATH="$PATH:/home/tangleroot013/.local/opt/go/bin"
+
+export PATH="$PATH:/home/tangleroot013/.local/bin"
+
+eval "$(zoxide init zsh)"
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+source /home/tangleroot013/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
+
+source /home/tangleroot013/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+# --- BEGIN claude-zsh-functions ---
+fkill() {
+    local pid
+    pid=$(ps -ef | sed 1d | fzf -m --prompt="Kill> " | awk '{print $2}')
+    if [ -n "$pid" ]; then
+        echo $pid | xargs kill -9
+        echo "[ok] terminated: $pid"
+    fi
+}
+
+v() {
+    local file
+    file=$(fd --type f --hidden --exclude .git | fzf --prompt="Edit> " --preview 'bat --color=always {}')
+    if [ -n "$file" ]; then
+        ${EDITOR:-nano} "$file"
+    fi
+}
+
+mkcd() {
+    mkdir -p "$1" && cd "$1"
+}
+
+autoload -U add-zsh-hook
+_auto_venv() {
+    if [[ -d .venv ]]; then
+        [[ "$VIRTUAL_ENV" != "$PWD/.venv" ]] && source .venv/bin/activate
+    elif [[ -n "$VIRTUAL_ENV" ]]; then
+        local parentdir="$(dirname "$VIRTUAL_ENV")"
+        if [[ "$PWD"/ != "$parentdir"/* ]]; then
+            deactivate
+        fi
+    fi
+}
+add-zsh-hook chpwd _auto_venv
+
+extract() {
+    if [ -f "$1" ]; then
+        case "$1" in
+            *.tar.bz2)   tar xjf "$1"     ;;
+            *.tar.gz)    tar xzf "$1"     ;;
+            *.bz2)       bunzip2 "$1"     ;;
+            *.rar)       unrar e "$1"     ;;
+            *.gz)        gunzip "$1"      ;;
+            *.tar)       tar xf "$1"      ;;
+            *.tbz2)      tar xjf "$1"     ;;
+            *.tgz)       tar xzf "$1"     ;;
+            *.zip)       unzip "$1"       ;;
+            *.Z)         uncompress "$1"  ;;
+            *.7z)        7z x "$1"        ;;
+            *)           echo "'$1' cannot be extracted via extract()" ;;
+        esac
+    else
+        echo "'$1' is not a valid file"
+    fi
+}
+
+portkill() {
+    if [ -z "$1" ]; then
+        echo "Usage: portkill <port>"
+        return 1
+    fi
+    if ! command -v lsof >/dev/null 2>&1; then
+        echo "[error] lsof not installed — run: sudo apt-get install -y lsof"
+        return 1
+    fi
+    local pid=$(lsof -t -i:$1)
+    if [ -n "$pid" ]; then
+        kill -9 $pid
+        echo "[ok] freed port $1 (PID: $pid)"
+    else
+        echo "[skip] port $1 already free"
+    fi
+}
+
+gclean() {
+    local default_branch=$(git remote show origin | awk '/HEAD branch/ {print $NF}')
+    git branch --merged | egrep -v "(^\*|${default_branch})" | xargs -n 1 git branch -d
+    echo "[ok] swept merged branches"
+}
+
+dnuke() {
+    if ! docker info >/dev/null 2>&1; then
+        echo "[error] docker daemon not reachable — is it running in this container?"
+        return 1
+    fi
+    docker container prune -f
+    docker image prune -a -f
+    docker volume prune -f
+    docker network prune -f
+    echo "[ok] docker environment sanitized"
+}
+
+serve() {
+    local port="${1:-8000}"
+    local ip=$(hostname -I | awk '{print $1}')
+    echo "[ok] serving on http://127.0.0.1:$port"
+    echo "[note] http://$ip:$port is the container's internal IP — reachable from the ChromeOS host, not other LAN devices without separate port forwarding"
+    python3 -m http.server "$port"
+}
+
+cb() {
+    if command -v pbcopy >/dev/null 2>&1; then
+        pbcopy
+    elif command -v xclip >/dev/null 2>&1; then
+        xclip -selection clipboard
+    elif command -v wl-copy >/dev/null 2>&1; then
+        wl-copy
+    elif command -v clip.exe >/dev/null 2>&1; then
+        clip.exe
+    else
+        echo "[error] no clipboard manager found — install xclip or wl-clipboard"
+        return 1
+    fi
+}
+# --- END claude-zsh-functions ---
+# --- BEGIN claude-zsh-power-v2 ---
+
+# proj: fuzzy-jump into a ~/github_projects repo, eza+git preview
+proj() {
+    local dir
+    dir=$(fd . "$HOME/github_projects" --max-depth 1 --type d 2>/dev/null | fzf --prompt="Repo> " --preview 'eza -la --git --color=always {}')
+    if [ -n "$dir" ]; then
+        cd "$dir" || return 1
+    fi
+}
+
+# stepstub <name>: scaffold a ship.py-compatible STEPS callable (bool-returning, CLI-runnable)
+stepstub() {
+    if [ -z "${1:-}" ]; then
+        echo "Usage: stepstub <step_name>"
+        return 1
+    fi
+    local name="$1"
+    local file="${name}.py"
+    if [ -e "$file" ]; then
+        echo "[error] $file already exists"
+        return 1
+    fi
+    cat > "$file" << PYEOF
+"""${name} -- CerebroFlow pipeline step.
+
+Runnable standalone via CLI, or wired into ship.py's STEPS list as:
+    from ${name} import ${name}
+    STEPS.append(${name})
+"""
+import sys
+
+
+def ${name}() -> bool:
+    """Run the ${name} step. Return True on success, False on failure."""
+    print("[ok] ${name} placeholder -- implement me")
+    return True
+
+
+if __name__ == "__main__":
+    sys.exit(0 if ${name}() else 1)
+PYEOF
+    echo "[ok] scaffolded $file"
+}
+
+# covgaps: list files+line numbers with missing pytest coverage
+covgaps() {
+    if [ ! -f "coverage.json" ]; then
+        python3 -m pytest --cov=. --cov-report=json -q >/dev/null 2>&1
+    fi
+    if [ ! -f "coverage.json" ]; then
+        echo "[error] coverage.json not found and could not be generated"
+        return 1
+    fi
+    python3 -c "
+import json
+data = json.load(open('coverage.json'))
+gaps = {f: i['missing_lines'] for f, i in data['files'].items() if i['missing_lines']}
+if not gaps:
+    print('[ok] no coverage gaps')
+for fname, missing in gaps.items():
+    print(f'{fname}: {missing}')
+"
+}
+
+# gdf: fuzzy-pick a changed file, view its diff paged through bat
+gdf() {
+    local file
+    file=$(git diff --name-only | fzf --prompt="Diff> " --preview 'git diff --color=always -- {}')
+    if [ -n "$file" ]; then
+        git diff --color=always -- "$file" | bat --paging=always -l diff
+    fi
+}
+
+# pyclean [dir]: recursively strip python cache/coverage artifacts (fd-powered)
+pyclean() {
+    local root="${1:-.}"
+    fd -H -I -t d '^(__pycache__|\.pytest_cache|\.ruff_cache)$' "$root" -x rm -rf {} 2>/dev/null
+    fd -H -I -t f '\.coverage$' "$root" -x rm -f {} 2>/dev/null
+    echo "[ok] cleaned python cache artifacts under $root"
+}
+# --- END claude-zsh-power-v2 ---
+
+# Override Git Aliases
+alias gst='git status'
+alias gl='git log --oneline --graph --all'
+
+# Define pve (Python Virtual Environment shortcut)
+pve() {
+    if [[ -d "$1" ]]; then
+        source "$1/bin/activate"
+        echo "[ok] Activated virtual environment: $1"
+    else
+        echo "[error] Virtual environment '$1' not found."
+    fi
+}
+# --- BEGIN claude-zshrc-backport ---
+# safe aliases back-ported from ~/.zsh/dotfiles/.zshrc (proj alias deliberately excluded — it clashes with the proj() function)
+alias rm="rm -i"
+alias cp="cp -i"
+alias mv="mv -i"
+alias up='sudo apt update && sudo apt upgrade -y'
+# --- END claude-zshrc-backport ---
+# >>> claude:pages-publish >>>
+# Find the ez_bookmarks repo (never .wiki) from anywhere and publish index.html
+pages-publish() {
+  local repo="" gitdir d remote
+  for gitdir in $(find "$HOME" -maxdepth 5 -type d -name ".git" 2>/dev/null); do
+    d="${gitdir:h}"
+    remote="$(git -C "$d" remote get-url origin 2>/dev/null)"
+    if [[ "$remote" == *"ez_bookmarks"* && "$remote" != *".wiki"* ]]; then
+      repo="$d"
+      break
+    fi
+  done
+  if [[ -z "$repo" ]]; then
+    echo "pages-publish: could not find a local ez_bookmarks clone (not the .wiki one)" >&2
+    return 1
+  fi
+  ( cd "$repo" && just publish-pages )
+}
+# <<< claude:pages-publish <<<
+
+# >>> gh_real_binary_override >>>
+# linuxbrew's gh on PATH resolves incorrectly; force the apt-installed real binary
+alias gh="/usr/bin/gh"
+# <<< gh_real_binary_override <<<
+# >>> sysreport alias >>>
+alias sysreport="python3 \$HOME/bin/sysreport.py"
+# <<< sysreport alias <<<
+
+
+
+
+# dotfiles-snapshot CLI
+snapdot() {
+    python3 "$HOME/home-data/dotfiles-snapshot/bin/snapshot-dotfiles.py" "$@"
+}
+
+
+
+# >>> snapshot-dotfiles CLI >>>
+snapdot() {
+    python3 "$HOME/home-data/dotfiles-snapshot/bin/snapshot-dotfiles.py" "$@"
+}
+# <<< snapshot-dotfiles CLI <<<

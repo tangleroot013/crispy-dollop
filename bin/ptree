@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+"""
+ptree - Pure Python directory tree visualizer.
+Ignores .git, __pycache__, and node_modules natively.
+"""
+import os
+import sys
+
+IGNORE_DIRS = {'.git', '__pycache__', 'node_modules', '.venv', 'venv'}
+
+def print_tree(startpath: str, prefix: str = "") -> None:
+    try:
+        entries = sorted(os.listdir(startpath))
+    except PermissionError:
+        return
+
+    entries = [e for e in entries if not (os.path.isdir(os.path.join(startpath, e)) and e in IGNORE_DIRS)]
+    
+    for i, entry in enumerate(entries):
+        path = os.path.join(startpath, entry)
+        is_last = (i == len(entries) - 1)
+        connector = "└── " if is_last else "├── "
+        
+        if os.path.isdir(path):
+            print(f"{prefix}{connector}\033[1;34m{entry}\033[0m/")
+            extension = "    " if is_last else "│   "
+            print_tree(path, prefix + extension)
+        else:
+            print(f"{prefix}{connector}{entry}")
+
+if __name__ == '__main__':
+    target = sys.argv[1] if len(sys.argv) > 1 else "."
+    print(f"\033[1;34m{os.path.abspath(target)}\033[0m/")
+    print_tree(target)

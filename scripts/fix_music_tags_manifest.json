@@ -1,0 +1,182 @@
+{
+  "timestamp": "2026-08-10T20:23:44.099297+00:00",
+  "root": "/home/tangleroot013/Music",
+  "mode": "execute",
+  "summary": {
+    "files_scanned": 8,
+    "files_changed": 8,
+    "total_tag_changes": 24,
+    "unreadable_files": 0
+  },
+  "changes": [
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/card.mp3",
+      "field": "title",
+      "old": null,
+      "new": "card",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/card.mp3",
+      "field": "artist",
+      "old": null,
+      "new": "Unknown Artist",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/card.mp3",
+      "field": "album",
+      "old": null,
+      "new": "blog main",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/button.mp3",
+      "field": "title",
+      "old": null,
+      "new": "button",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/button.mp3",
+      "field": "artist",
+      "old": null,
+      "new": "Unknown Artist",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/button.mp3",
+      "field": "album",
+      "old": null,
+      "new": "blog main",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/external.mp3",
+      "field": "title",
+      "old": null,
+      "new": "external",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/external.mp3",
+      "field": "artist",
+      "old": null,
+      "new": "Unknown Artist",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/external.mp3",
+      "field": "album",
+      "old": null,
+      "new": "blog main",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/link.mp3",
+      "field": "title",
+      "old": null,
+      "new": "link",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/link.mp3",
+      "field": "artist",
+      "old": null,
+      "new": "Unknown Artist",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/link.mp3",
+      "field": "album",
+      "old": null,
+      "new": "blog main",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/forward.mp3",
+      "field": "title",
+      "old": null,
+      "new": "forward",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/forward.mp3",
+      "field": "artist",
+      "old": null,
+      "new": "Unknown Artist",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/forward.mp3",
+      "field": "album",
+      "old": null,
+      "new": "blog main",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/back.mp3",
+      "field": "title",
+      "old": null,
+      "new": "back",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/back.mp3",
+      "field": "artist",
+      "old": null,
+      "new": "Unknown Artist",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/back.mp3",
+      "field": "album",
+      "old": null,
+      "new": "blog main",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/close.mp3",
+      "field": "title",
+      "old": null,
+      "new": "close",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/close.mp3",
+      "field": "artist",
+      "old": null,
+      "new": "Unknown Artist",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/close.mp3",
+      "field": "album",
+      "old": null,
+      "new": "blog main",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/toggle.mp3",
+      "field": "title",
+      "old": null,
+      "new": "toggle",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/toggle.mp3",
+      "field": "artist",
+      "old": null,
+      "new": "Unknown Artist",
+      "status": "applied"
+    },
+    {
+      "path": "/home/tangleroot013/Music/Unknown Artist/blog main/toggle.mp3",
+      "field": "album",
+      "old": null,
+      "new": "blog main",
+      "status": "applied"
+    }
+  ],
+  "errors": []
+}

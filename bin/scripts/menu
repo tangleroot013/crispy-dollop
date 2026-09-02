@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CYAN="\033[1;36m"
+GREEN="\033[1;32m"
+YELLOW="\033[1;33m"
+RED="\033[1;31m"
+NC="\033[0m"
+
+clear
+echo -e "${CYAN}⬢==============================================================⬢${NC}"
+echo -e "${CYAN}  🤖 G.O.D. STACK OPERATOR CONTROL INTERFACE${NC}"
+echo -e "${CYAN}⬢==============================================================⬢${NC}"
+
+PS3=$(echo -e "\n${YELLOW}❯ Select operational vector number: ${NC}")
+
+options=(
+    "Run Core Master System Engine (god_master.py)"
+    "Execute Production Matrix Flow (run_production_matrix.py)"
+    "Trigger Automation Workspace Test Harness (run_tests.sh)"
+    "Initialize Core Environment Refactor (run_workspace_refactor.py)"
+    "Apply Patch Raw Shedder Logic (patch_raw_shedder.py)"
+    "Audit Core System Profile (matrix-health)"
+    "Monitor Network Endpoints (net-map)"
+    "Exit Controller"
+)
+
+select opt in "${options[@]}"; do
+    case "$opt" in
+        "Run Core Master System Engine (god_master.py)")
+            echo -e "\n${GREEN}[!] Engaging god_master.py...${NC}\n"
+            god_master.py || echo -e "${RED}[!] Process exited with anomalies.${NC}"
+            break
+            ;;
+        "Execute Production Matrix Flow (run_production_matrix.py)")
+            echo -e "\n${GREEN}[!] Spinning up Production Matrix Engine...${NC}\n"
+            run_production_matrix.py || echo -e "${RED}[!] Process terminated.${NC}"
+            break
+            ;;
+        "Trigger Automation Workspace Test Harness (run_tests.sh)")
+            echo -e "\n${GREEN}[!] Launching localized pipeline validation...${NC}\n"
+            run_tests.sh || echo -e "${RED}[!] Pipeline failed verification.${NC}"
+            break
+            ;;
+        "Initialize Core Environment Refactor (run_workspace_refactor.py)")
+            echo -e "\n${YELLOW}[!] Refactoring target environment contexts...${NC}\n"
+            run_workspace_refactor.py
+            break
+            ;;
+        "Apply Patch Raw Shedder Logic (patch_raw_shedder.py)")
+            echo -e "\n${YELLOW}[!] Running critical system patch layer...${NC}\n"
+            patch_raw_shedder.py
+            break
+            ;;
+        "Audit Core System Profile (matrix-health)")
+            echo -e "\n${GREEN}[!] Running System Profiler...${NC}\n"
+            matrix-health
+            break
+            ;;
+        "Monitor Network Endpoints (net-map)")
+            echo -e "\n${CYAN}[!] Mapping Network Layers...${NC}\n"
+            net-map
+            break
+            ;;
+        "Exit Controller")
+            echo -e "\n${YELLOW}Disconnecting interface. Terminal preserved.${NC}\n"
+            break
+            ;;
+        *) 
+            echo -e "${RED}Invalid vector choice. Select 1-${#options[@]}.${NC}"
+            ;;
+    esac
+done
