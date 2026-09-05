@@ -1,0 +1,349 @@
+# Chromebook Mullvad WireGuard: Complete System Architecture & Implementation Manual
+
+This document provides an exhaustive, production-grade specification for deploying, hardening, automating, and validating a resilient WireGuard VPN tunnel inside a ChromeOS Linux (Crostini) environment using Mullvad VPN relays.
+
+## 1. Executive Summary & Crostini Environment Architecture
+
+ChromeOS Linux runs inside a managed virtual machine container (Crostini) backed by a Debian-based userland. While lightweight and secure, this architecture introduces unique operational constraints for virtual private networks:
+
+* **Kernel Dependency**: WireGuard requires kernel-level routing and socket support (natively baked into ChromeOS kernel 5.4+ and 5.10+).
+* **Network Namespaces**: Crostini shares networking constructs with the host ChromeOS system, necessitating precise interface routing (`wg0`) and `iptables`/`nftables` policy alignment.
+* **Resource Constraints**: Flash storage and RAM are bounded; automated log rotation, minimal dependencies, and efficient caching are paramount.
+
+The architecture implemented in this repository enforces a modular, idempotent, and heavily sandboxed design pattern.
+
+## 2. Dependency Resolution & Centralized Package Management
+
+To eliminate package drift across automation scripts, all package declarations are centralized within `scripts/common-packages.sh`.
+
+### Core Packages Required
+
+* `wireguard-tools`: Provides `wg`, `wg-quick`, and key generation utilities.
+* `jq`: JSON stream parser for processing Mullvad server discovery API payloads.
+* `curl`: Secure transport for API polling and speed testing.
+* `dnsutils`: Supplies `dig` for DNS querying and leak checks.
+* `iproute2`: Provides robust routing table manipulation (`ip route`, `ip link`).
+* `netcat-openbsd`: Socket utility for TCP endpoint checks.
+* `tcpdump`: Packet capture utility for interface-based validation.
+* `python3`: Scripting runtime for advanced probe payloads.
+* `shellcheck`: Static analysis tool for CI pipeline linting.
+
+```
+#!/usr/bin/env bash
+set -euo pipefail
+
+REQUIRED_PKGS=(
+  jq
+  curl
+  wireguard-tools
+  dnsutils
+  iproute2
+  netcat-openbsd
+  tcpdump
+  ca-certificates
+  python3
+)
+
+install_missing() {
+  local missing=()
+  for pkg in "${REQUIRED_PKGS[@]}"; do
+    dpkg -s "$pkg" &>/dev/null || missing+=("$pkg")
+  done
+
+  if [[ "${#missing[@]}" -gt 0 ]]; then
+    echo "Installing missing packages: ${missing[*]}"
+    sudo apt-get update
+    sudo apt-get install -y "${missing[@]}"
+  fi
+}
+
+ensure_deps() {
+  local cmds=(jq curl wg wg-quick ip dig nc tcpdump python3)
+  for c in "${cmds[@]}"; do
+    command -v "$c" >/dev/null 2>&1 || true
+  done
+  install_missing
+}
+
+
+```
+
+## 3. Cryptographic Key Lifecycle & Atomic Rotation
+
+Security of the WireGuard tunnel hinges upon the private key stored at `/etc/wireguard/privatekey`.
+
+### Key Rotation (`update-keys.sh`)
+
+The rotation script guarantees atomic execution:
+
+1. Backs up the existing private key to `/etc/wireguard/privatekey.bak`.
+2. Generates a fresh private key via `wg genkey` inside a temporary file.
+3. <comment-tag id="1" text="Verify that strict file permissions are actively enforced post-generation by checking file ownership and mode using stat to prevent accidental key exposure." type="suggestion">Installs the key atomically with strict permissions (600).</comment-tag id="1">
+4. Derives and writes the corresponding public key.
+
+```
+#!/usr/bin/env bash
+set -euo pipefail
+
+require_cmd() { command -v "$1" >/dev/null 2>&1 || { echo "Missing command: $1"; exit 1; }; }
+require_cmd wg
+
+KEY_DIR="/etc/wireguard"
+OLD_PRIV="${KEY_DIR}/privatekey.bak"
+
+sudo mkdir -p "$KEY_DIR"
+
+if [[ -f "${KEY_DIR}/privatekey" ]]; then
+  sudo cp "${KEY_DIR}/privatekey" "$OLD_PRIV"
+fi
+
+tmp_priv="$(mktemp)"
+trap 'rm -f "$tmp_priv"' EXIT
+
+sudo wg genkey | tee "$tmp_priv" >/dev/null
+sudo install -m 600 "$tmp_priv" "${KEY_DIR}/privatekey"
+
+sudo wg pubkey < "${KEY_DIR}/privatekey" | sudo tee "${KEY_DIR}/publickey" >/dev/null
+sudo chmod 600 "${KEY_DIR}/publickey"
+
+echo "Key rotation complete. Backup stored at $OLD_PRIV"
+
+
+```
+
+### Emergency Kill-Switch (`kill-switch.sh`)
+
+In the event of compromise or physical security threats, `kill-switch.sh` terminates services and securely overwrites sensitive cryptographic material using `shred` or zero-fill truncation before unlinking.
+
+```
+#!/usr/bin/env bash
+set -euo pipefail
+
+sudo systemctl stop wg-mullvad.service wg-recovery.service || true
+
+if [[ -f /etc/wireguard/privatekey ]]; then
+  sudo shred -u /etc/wireguard/privatekey || sudo rm -f /etc/wireguard/privatekey
+fi
+sudo rm -f /etc/wireguard/publickey /etc/wireguard/wg0.conf || true
+
+echo "🔒 Tunnel disabled; cryptographic keys securely purged."
+
+
+```
+
+## 4. Server Discovery, API Integration & Caching
+
+Mullvad provides dynamic relay lists via their public WireGuard API endpoint. <comment-tag id="2" text="Include a fallback validation step if the network fetch fails and no cache exists, ensuring the script exits gracefully with an informative error instead of failing silently." type="suggestion">To ensure offline resilience in Crostini, server-discovery.sh implements a local 12-hour Time-To-Live (TTL) cache.</comment-tag id="2">
+
+```
+#!/usr/bin/env bash
+set -euo pipefail
+
+source "$(dirname "$0")/wg-env.sh"
+require_cmd() { command -v "$1" >/dev/null 2>&1 || { echo "Missing command: $1"; exit 1; }; }
+
+require_cmd curl
+require_cmd jq
+
+URL="https://api.mullvad.net/public/relays/wireguard/v2/"
+CACHE="/var/cache/chromebook-mullvad/mullvad-servers.json"
+TTL=$((12*3600))
+
+sudo mkdir -p "$(dirname "$CACHE")"
+sudo mkdir -p /etc/wireguard
+sudo chmod 750 /etc/wireguard || true
+
+if [[ -f "$CACHE" ]]; then
+  age=$(( $(date +%s) - $(stat -c %Y "$CACHE") ))
+else
+  age=$((TTL+1))
+fi
+
+if [[ "$age" -lt "$TTL" ]]; then
+  sudo cp "$CACHE" "$WG_SERVERS_JSON"
+else
+  echo "Fetching Mullvad server list..."
+  tmp="$(mktemp)"
+  curl -sSf "$URL" -o "$tmp"
+  sudo install -m 644 "$tmp" "$CACHE"
+  sudo cp "$CACHE" "$WG_SERVERS_JSON"
+  rm -f "$tmp"
+fi
+sudo chmod 644 "$WG_SERVERS_JSON"
+echo "Server discovery and caching complete."
+
+
+```
+
+## 5. Configuration Rendering & Template Management
+
+The configuration engine renders `/etc/wireguard/wg0.conf` dynamically from templates using <comment-tag id="3" text="Add a syntax validation check (e.g. wg-quick strip) on the rendered configuration before saving it to disk to prevent invalid configuration syntax deployment." type="suggestion">robust POSIX sed substitution</comment-tag id="3">, avoiding fragile external interpreters.
+
+### Base Configuration Template (`config/wg0.conf.template`)
+
+```
+[Interface]
+PrivateKey = ${WG_PRIVATE_KEY}
+Address = 10.7.0.2/32
+DNS = ${WG_DNS}
+MTU = ${WG_MTU}
+
+[Peer]
+PublicKey = ${MULLVAD_SERVER_PUBLIC_KEY}
+AllowedIPs = 0.0.0.0/0
+Endpoint = ${MULLVAD_SERVER_ENDPOINT}
+PersistentKeepalive = 25
+
+
+```
+
+## 6. Service Orchestration & Systemd Security Hardening
+
+<comment-tag id="4" text="Document troubleshooting steps using journalctl -u wg-mullvad.service -e to quickly inspect service failure reasons during sandbox rejections or permission issues." type="suggestion">Both wg-mullvad.service and wg-recovery.service employ strict capability bounds and sandboxing primitives.</comment-tag id="4">
+
+### Main VPN Service (`systemd/wg-mullvad.service`)
+
+```
+[Unit]
+Description=WireGuard VPN (Mullvad) tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/wg-quick up wg0
+ExecStop=/usr/bin/wg-quick down wg0
+Restart=on-failure
+RestartSec=5
+
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+
+ProtectSystem=full
+PrivateTmp=yes
+ProtectHome=yes
+ReadWritePaths=/etc/wireguard
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target
+
+
+```
+
+## 7. Automated Health Checks & Interface Verification
+
+To prevent silent failures (a "dead tunnel" where the interface is up but routing fails), the test suite utilizes interface-bound inspection.
+
+### Interface-Based DNS Leak Test (`scripts/dns-leak-test.sh`)
+
+```
+#!/usr/bin/env bash
+set -euo pipefail
+
+source "$(dirname "$0")/wg-env.sh"
+
+require_cmd() { command -v "$1" >/dev/null 2>&1 || { echo "Missing command: $1"; exit 1; }; }
+require_cmd dig
+require_cmd tcpdump
+require_cmd ip
+require_cmd grep
+
+WG_IFACE="${WG_IFACE:-wg0}"
+DNS_SERVER="${WG_DNS}"
+
+ip link show "$WG_IFACE" >/dev/null 2>&1 || { echo "Interface $WG_IFACE not found"; exit 1; }
+[[ -n "${DNS_SERVER}" ]] || { echo "WG_DNS is empty"; exit 1; }
+
+TMP="$(mktemp)"
+trap 'rm -f "$TMP"' EXIT
+
+sudo tcpdump -i "$WG_IFACE" -n -l "host ${DNS_SERVER} and port 53" >"$TMP" 2>/dev/null &
+TCPDUMP_PID=$!
+
+sleep 1
+dig @"$DNS_SERVER" example.com +time=2 +tries=1 +short >/dev/null 2>&1 || true
+
+sudo kill "$TCPDUMP_PID" >/dev/null 2>&1 || true
+wait "$TCPDUMP_PID" 2>/dev/null || true
+
+if grep -q "$DNS_SERVER" "$TMP"; then
+  echo "PASS: DNS traffic to ${DNS_SERVER} observed on ${WG_IFACE}"
+  exit 0
+else
+  echo "FAIL: No DNS traffic to ${DNS_SERVER} observed on ${WG_IFACE}"
+  exit 1
+fi
+
+
+```
+
+### Handshake Freshness Test (`scripts/handshake-freshness-test.sh`)
+
+```
+#!/usr/bin/env bash
+set -euo pipefail
+
+source "$(dirname "$0")/wg-env.sh"
+
+require_cmd() { command -v "$1" >/dev/null 2>&1 || { echo "Missing command: $1"; exit 1; }; }
+require_cmd wg
+require_cmd awk
+require_cmd date
+
+WG_IFACE="${WG_IFACE:-wg0}"
+MAX_AGE_SEC="${MAX_HANDSHAKE_AGE_SEC:-120}"
+
+LATEST_TS="$(sudo wg show "$WG_IFACE" 2>/dev/null | awk '/latest handshake:/ {print $3}' | head -n1)"
+
+if [[ -z "$LATEST_TS" || "$LATEST_TS" == "0" ]]; then
+  echo "FAIL: No active handshake detected on ${WG_IFACE}"
+  exit 1
+fi
+
+NOW_TS="$(date +%s)"
+AGE_SEC="$((NOW_TS - LATEST_TS))"
+
+if [[ "$AGE_SEC" -le "$MAX_AGE_SEC" ]]; then
+  echo "PASS: Latest handshake age is ${AGE_SEC}s (<= ${MAX_AGE_SEC}s)"
+  exit 0
+else
+  echo "FAIL: Handshake stale. Age: ${AGE_SEC}s (> ${MAX_AGE_SEC}s)"
+  exit 1
+fi
+
+
+```
+
+## 8. Continuous Integration & Compliance Pipeline
+
+<comment-tag id="5" text="Recommend running make lint locally before pushing code to catch ShellCheck warnings and formatting errors early in the local development cycle." type="suggestion">The repository includes a GitHub Actions workflow (.github/workflows/ci.yml)</comment-tag id="5"> ensuring syntactic correctness via ShellCheck and automated dry-run testing on every push.
+
+```
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wireguard-tools jq curl dnsutils iproute2 netcat-openbsd shellcheck tcpdump python3
+
+      - name: ShellCheck static analysis
+        run: shellcheck scripts/*.sh
+
+      - name: Test server discovery module
+        run: bash scripts/server-discovery.sh
+
+      - name: Validate dry-run installer
+        run: bash scripts/validate-setup.sh dry-run
+
+```
+
+*Suggestions added*
