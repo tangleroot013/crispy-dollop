@@ -52,3 +52,14 @@ home_repo_backup.git/
 session_scripts_archive/
 scripts/archive/
 *.bak
+
+# Credentials and keys -- never track
+.ssh/
+.gnupg/
+.git-credentials
+*.pem
+*.key
+# Homoglyphic traps
+mpd\342\200\221watchdog.sh
+# Homoglyphic traps
+mpd\342\200\221watchdog.sh

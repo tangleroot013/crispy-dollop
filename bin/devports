@@ -6,7 +6,7 @@ Parses `ss` output to find running development servers without needing root.
 import subprocess
 import sys
 
-def get_ports():
+def get_ports() -> None:
     try:
         out = subprocess.check_output(['ss', '-tulnp'], stderr=subprocess.DEVNULL).decode()
         lines = out.splitlines()[1:]

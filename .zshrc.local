@@ -398,3 +398,108 @@ snapdot() {
     python3 "$HOME/home-data/dotfiles-snapshot/bin/snapshot-dotfiles.py" "$@"
 }
 # <<< snapshot-dotfiles CLI <<<
+
+# Auto-Virtualenv Switcher
+autoload -U add-zsh-hook
+_auto_venv() {
+    if [[ -n "${VIRTUAL_ENV:-}" && "$PWD" != "${VIRTUAL_ENV%/*}"* ]]; then
+        deactivate 2>/dev/null || true
+    fi
+    if [[ -z "${VIRTUAL_ENV:-}" ]]; then
+        if [[ -f "./.venv/bin/activate" ]]; then
+            source "./.venv/bin/activate"
+        elif [[ -f "./venv/bin/activate" ]]; then
+            source "./venv/bin/activate"
+        fi
+    fi
+}
+add-zsh-hook chpwd _auto_venv
+_auto_venv
+
+# FZF Interactive Git Log (Ctrl-G)
+_fzf_git_log() {
+    git log --graph --color=always \
+        --format="%C(auto)%h%d %s %C(black)%C(bold)%cr" "$@" 2>/dev/null |
+    fzf --ansi --no-sort --reverse --tiebreak=index \
+        --bind=ctrl-s:toggle-sort \
+        --preview 'f() { set -- $(echo -- "$@" | grep -o "[a-f0-9]\{7\}"); [ $# -eq 0 ] || git show --color=always $1; }; f {}'
+    zle reset-prompt
+}
+zle -N _fzf_git_log
+
+if type zvm_bindkey >/dev/null 2>&1; then
+    zvm_bindkey viins '^G' _fzf_git_log
+    zvm_bindkey vicmd '^G' _fzf_git_log
+else
+    bindkey '^G' _fzf_git_log
+fi
+
+# Auto-Virtualenv Switcher
+autoload -U add-zsh-hook
+_auto_venv() {
+    if [[ -n "${VIRTUAL_ENV:-}" && "$PWD" != "${VIRTUAL_ENV%/*}"* ]]; then
+        deactivate 2>/dev/null || true
+    fi
+    if [[ -z "${VIRTUAL_ENV:-}" ]]; then
+        if [[ -f "./.venv/bin/activate" ]]; then
+            source "./.venv/bin/activate"
+        elif [[ -f "./venv/bin/activate" ]]; then
+            source "./venv/bin/activate"
+        fi
+    fi
+}
+add-zsh-hook chpwd _auto_venv
+_auto_venv
+
+# FZF Interactive Git Log (Ctrl-G)
+_fzf_git_log() {
+    git log --graph --color=always \
+        --format="%C(auto)%h%d %s %C(black)%C(bold)%cr" "$@" 2>/dev/null |
+    fzf --ansi --no-sort --reverse --tiebreak=index \
+        --bind=ctrl-s:toggle-sort \
+        --preview 'f() { set -- $(echo -- "$@" | grep -o "[a-f0-9]\{7\}"); [ $# -eq 0 ] || git show --color=always $1; }; f {}'
+    zle reset-prompt
+}
+zle -N _fzf_git_log
+
+if type zvm_bindkey >/dev/null 2>&1; then
+    zvm_bindkey viins '^G' _fzf_git_log
+    zvm_bindkey vicmd '^G' _fzf_git_log
+else
+    bindkey '^G' _fzf_git_log
+fi
+
+# Auto-Virtualenv Switcher
+autoload -U add-zsh-hook
+_auto_venv() {
+    if [[ -n "${VIRTUAL_ENV:-}" && "$PWD" != "${VIRTUAL_ENV%/*}"* ]]; then
+        deactivate 2>/dev/null || true
+    fi
+    if [[ -z "${VIRTUAL_ENV:-}" ]]; then
+        if [[ -f "./.venv/bin/activate" ]]; then
+            source "./.venv/bin/activate"
+        elif [[ -f "./venv/bin/activate" ]]; then
+            source "./venv/bin/activate"
+        fi
+    fi
+}
+add-zsh-hook chpwd _auto_venv
+_auto_venv
+
+# FZF Interactive Git Log (Ctrl-G)
+_fzf_git_log() {
+    git log --graph --color=always \
+        --format="%C(auto)%h%d %s %C(black)%C(bold)%cr" "$@" 2>/dev/null |
+    fzf --ansi --no-sort --reverse --tiebreak=index \
+        --bind=ctrl-s:toggle-sort \
+        --preview 'f() { set -- $(echo -- "$@" | grep -o "[a-f0-9]\{7\}"); [ $# -eq 0 ] || git show --color=always $1; }; f {}'
+    zle reset-prompt
+}
+zle -N _fzf_git_log
+
+if type zvm_bindkey >/dev/null 2>&1; then
+    zvm_bindkey viins '^G' _fzf_git_log
+    zvm_bindkey vicmd '^G' _fzf_git_log
+else
+    bindkey '^G' _fzf_git_log
+fi
